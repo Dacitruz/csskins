@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+{% block title %}{{ skin.display_name }} - CS Skins Tracker{% endblock %}
+{% block extra_head %}
+<script src="/static/js/chart.umd.js"></script>
+{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1>{{ skin.display_name }}</h1>
+        <p class="subtitle">{{ snapshot_count }} price snapshot{{ 's' if snapshot_count != 1 else '' }} recorded</p>
+    </div>
+    <a href="/skins" class="btn btn-small">← All Skins</a>
+</div>
+
+{% if snapshot_count > 0 %}
+<div class="chart-controls">
+    <button class="btn btn-small view-toggle active" data-view="all">All Data Points</button>
+    <button class="btn btn-small view-toggle" data-view="daily">Daily</button>
+</div>
+<div class="chart-container" style="position: relative; height: 420px; width: 100%; background: #171a23; border-radius: 8px; padding: 24px; box-sizing: border-box;">
+    <canvas id="priceChart"></canvas>
+</div>
+<p id="chartError" class="empty-state" style="display: none; color: #f5566a; margin-top: 12px;"></p>
+
+<script>
+const skinId = {{ skin.id }};
+let chart;
+
+function showError(message) {
+    const el = document.getElementById('chartError');
+    el.textContent = message;
+    el.style.display = 'block';
+}
+
+async function loadChart(view) {
+    if (typeof Chart === 'undefined') {
+        showError('Chart.js failed to load from the CDN (cdnjs.cloudflare.com). Check your network/ad-blocker, or open the browser console for the exact error.');
+        return;
+    }
+
+    const url = view === 'daily'
+        ? `/skins/${skinId}/history/daily.json`
+        : `/skins/${skinId}/history.json`;
+
+    let data;
+    try {
+        const res = await fetch(url);
+        if (!res.ok) {
+            showError(`Failed to load price data (HTTP ${res.status}) from ${url}`);
+            return;
+        }
+        data = await res.json();
+    } catch (err) {
+        showError(`Failed to fetch price data: ${err.message}`);
+        return;
+    }
+
+    if (!data || data.length === 0) {
+        showError('No price data returned for this skin.');
+        return;
+    }
+
+    const labels = data.map(d => new Date(d.t).toLocaleString());
+    const prices = data.map(d => d.p);
+
+    if (chart) chart.destroy();
+
+    const ctx = document.getElementById('priceChart').getContext('2d');
+    chart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Price ($)',
+                data: prices,
+                borderColor: '#4f8dfd',
+                backgroundColor: 'rgba(79, 141, 253, 0.1)',
+                fill: true,
+                tension: 0.15,
+                pointRadius: data.length > 60 ? 0 : 3,
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false }
+            },
+            scales: {
+                x: {
+                    ticks: { color: '#8b8fa3', maxTicksLimit: 10 },
+                    grid: { color: '#2a2f3d' }
+                },
+                y: {
+                    ticks: { color: '#8b8fa3', callback: (v) => '$' + Number(v).toFixed(2) },
+                    grid: { color: '#2a2f3d' }
+                }
+            }
+        }
+    });
+}
+
+document.querySelectorAll('.view-toggle').forEach(btn => {
+    btn.addEventListener('click', () => {
+        document.querySelectorAll('.view-toggle').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        loadChart(btn.dataset.view);
+    });
+});
+
+loadChart('all');
+</script>
+{% else %}
+<p class="empty-state">No price data yet for this skin. Hit "Refresh Prices" on the Pumped Skins page to start collecting snapshots.</p>
+{% endif %}
+{% endblock %}

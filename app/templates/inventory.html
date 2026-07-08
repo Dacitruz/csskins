@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}My Inventory - CS Skins Tracker{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1>My Inventory</h1>
+        <p class="subtitle">Track what you paid vs. what it's worth now</p>
+    </div>
+    <button
+        class="btn btn-primary"
+        hx-post="/inventory/refresh"
+        hx-target="#inventory-table-container"
+        hx-swap="innerHTML"
+        hx-indicator="#inv-refresh-spinner">
+        Refresh Prices
+    <span id="inv-refresh-spinner" class="htmx-indicator">⏳</span>
+</button>
+</div>
+
+<form
+    class="add-form"
+    hx-post="/inventory/add"
+    hx-target="#inventory-table-container"
+    hx-swap="innerHTML"
+    hx-on::after-request="this.reset()">
+    <input type="text" name="weapon_name" placeholder="Item name, e.g. AK-47 | Redline" required>
+    <select name="condition">
+        <option value="">No condition (stickers, cases, etc.)</option>
+        <option value="Factory New">Factory New</option>
+        <option value="Minimal Wear">Minimal Wear</option>
+        <option value="Field-Tested">Field-Tested</option>
+        <option value="Well-Worn">Well-Worn</option>
+        <option value="Battle-Scarred">Battle-Scarred</option>
+    </select>
+    <input type="number" name="quantity" placeholder="Qty" value="1" min="1" required>
+    <input type="number" name="buy_price" placeholder="Buy price ($)" step="0.01" min="0" required>
+    <input type="text" name="notes" placeholder="Notes (optional)">
+    <button type="submit" class="btn btn-primary">Add Item</button>
+</form>
+
+<div id="inventory-table-container">
+    {% include "partials/inventory_table.html" %}
+</div>
+{% endblock %}

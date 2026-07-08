@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}Price Charts - CS Skins Tracker{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1>Price Charts</h1>
+        <p class="subtitle">Every tracked skin - click one to see its full price history</p>
+    </div>
+</div>
+
+{% if rows %}
+<table class="data-table">
+    <thead>
+        <tr>
+            <th>Skin</th>
+            <th>Latest Price</th>
+            <th>Data Points</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in rows %}
+        <tr>
+            <td><a href="/skins/{{ row.skin.id }}" class="skin-link">{{ row.skin.display_name }}</a></td>
+            <td>
+                {% if row.latest_price is not none %}${{ "%.2f"|format(row.latest_price) }}{% else %}<span class="muted">no data yet</span>{% endif %}
+            </td>
+            <td>{{ row.snapshot_count }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<p class="empty-state">No skins tracked yet. Add one via the Inventory page, or seed_data.py.</p>
+{% endif %}
+{% endblock %}

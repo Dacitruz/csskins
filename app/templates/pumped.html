@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}Pumped Skins - CS Skins Tracker{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1>Recently Pumped Skins</h1>
+        <p class="subtitle">Skins with a 24h change ≥ 15% or a 7d change ≥ 30%</p>
+    </div>
+    <button
+        class="btn btn-primary"
+        hx-post="/pumped/refresh"
+        hx-target="#pumped-table-container"
+        hx-swap="innerHTML"
+        hx-indicator="#refresh-spinner">
+        Refresh Prices
+        <span id="refresh-spinner" class="htmx-indicator">⏳</span>
+    </button>
+</div>
+
+<div id="pumped-table-container"
+     hx-get="/pumped/table"
+     hx-trigger="every 60s"
+     hx-swap="innerHTML">
+    {% include "partials/pumped_table.html" %}
+</div>
+{% endblock %}

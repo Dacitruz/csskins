@@ -1,0 +1,46 @@
+from contextlib import asynccontextmanager
+
+from fastapi import FastAPI, Request
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import RedirectResponse
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+
+from app.database import Base, engine, SessionLocal
+from app import price_service
+from app.routers import pumped, inventory, skins
+
+Base.metadata.create_all(bind=engine)
+
+scheduler = AsyncIOScheduler()
+
+
+async def scheduled_refresh():
+    db = SessionLocal()
+    try:
+        await price_service.refresh_all_prices(db)
+    finally:
+        db.close()
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Auto price-refresh every hour. Steam's endpoint is rate-limited, so don't
+    # go much more aggressive than this if you're tracking more than a handful
+    # of skins - tune to taste.
+    scheduler.add_job(scheduled_refresh, "interval", hours=1, id="price_refresh")
+    scheduler.start()
+    yield
+    scheduler.shutdown()
+
+
+app = FastAPI(title="CS Skins Tracker", lifespan=lifespan)
+app.mount("/static", StaticFiles(directory="app/static"), name="static")
+
+app.include_router(pumped.router)
+app.include_router(inventory.router)
+app.include_router(skins.router)
+
+
+@app.get("/")
+def root():
+    return RedirectResponse(url="/pumped")

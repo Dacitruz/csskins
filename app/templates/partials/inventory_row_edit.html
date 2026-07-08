@@ -1,0 +1,50 @@
+<tr id="inv-row-{{ row.item.id }}">
+    <td>{{ row.item.skin.display_name }}</td>
+    <td>{{ row.item.quantity }}</td>
+    <td>
+        <form
+            id="edit-form-{{ row.item.id }}"
+            hx-post="/inventory/{{ row.item.id }}/update"
+            hx-target="#inventory-table-container"
+            hx-swap="innerHTML"
+            class="inline-edit-form">
+            <input
+                type="number"
+                name="buy_price"
+                value="{{ row.item.buy_price }}"
+                step="0.01"
+                min="0"
+                required
+                autofocus>
+        </form>
+    </td>
+    <td>
+        {% if row.current_price is not none %}
+            ${{ "%.2f"|format(row.current_price) }}
+        {% else %}
+            <span class="muted">no data yet</span>
+        {% endif %}
+    </td>
+    <td>${{ "%.2f"|format(row.cost) }}</td>
+    <td>
+        {% if row.value is not none %}${{ "%.2f"|format(row.value) }}{% else %}—{% endif %}
+    </td>
+    <td>
+        {% if row.profit is not none %}
+        <span class="badge {% if row.profit >= 0 %}up{% else %}down{% endif %}">
+            {{ "%.2f"|format(row.profit) }} ({{ "%.1f"|format(row.profit_pct) }}%)
+        </span>
+        {% else %}—{% endif %}
+    </td>
+    <td class="row-actions">
+        <button type="submit" form="edit-form-{{ row.item.id }}" class="btn btn-small btn-primary">Save</button>
+        <button
+            type="button"
+            class="btn btn-small"
+            hx-get="/inventory/table"
+            hx-target="#inventory-table-container"
+            hx-swap="innerHTML">
+            Cancel
+        </button>
+    </td>
+</tr>

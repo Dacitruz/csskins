@@ -1,0 +1,92 @@
+<div class="stats-row">
+    <div class="stat-card">
+        <span class="stat-label">Total Inventory Value</span>
+        <span class="stat-value">${{ "%.2f"|format(total_value) }}</span>
+    </div>
+    <div class="stat-card">
+        <span class="stat-label">Total Cost Basis</span>
+        <span class="stat-value">${{ "%.2f"|format(total_cost) }}</span>
+    </div>
+    <div class="stat-card">
+        <span class="stat-label">Total P/L</span>
+        <span class="stat-value {% if total_profit >= 0 %}up{% else %}down{% endif %}">
+            {{ "%.2f"|format(total_profit) }}
+        </span>
+    </div>
+</div>
+
+{% if rows %}
+<table class="data-table">
+    <thead>
+        <tr>
+            <th>Skin</th>
+            <th>Qty</th>
+            <th>Buy Price</th>
+            <th>Current Price</th>
+            <th>Cost Basis</th>
+            <th>Current Value</th>
+            <th>P/L</th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in rows %}
+        <tr id="inv-row-{{ row.item.id }}">
+            <td><a href="/skins/{{ row.item.skin.id }}" class="skin-link">{{ row.item.skin.display_name }}</a></td>
+            <td>{{ row.item.quantity }}</td>
+            <td>${{ "%.2f"|format(row.item.buy_price) }}</td>
+            <td>
+                {% if row.current_price is not none %}
+                    ${{ "%.2f"|format(row.current_price) }}
+                {% else %}
+                    <span class="muted">no data yet</span>
+                {% endif %}
+            </td>
+            <td>${{ "%.2f"|format(row.cost) }}</td>
+            <td>
+                {% if row.value is not none %}${{ "%.2f"|format(row.value) }}{% else %}—{% endif %}
+            </td>
+            <td>
+                {% if row.profit is not none %}
+                <span class="badge {% if row.profit >= 0 %}up{% else %}down{% endif %}">
+                    {{ "%.2f"|format(row.profit) }} ({{ "%.1f"|format(row.profit_pct) }}%)
+                </span>
+                {% else %}—{% endif %}
+            </td>
+            <td class="row-actions">
+                <button
+                    class="btn btn-small"
+                    hx-get="/inventory/{{ row.item.id }}/edit"
+                    hx-target="#inv-row-{{ row.item.id }}"
+                    hx-swap="outerHTML">
+                    Edit
+                </button>
+                <button
+                    class="btn btn-small btn-danger"
+                    hx-post="/inventory/{{ row.item.id }}/delete"
+                    hx-target="#inventory-table-container"
+                    hx-swap="innerHTML"
+                    hx-confirm="Remove this item from your inventory?">
+                    Remove
+                </button>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+    <tfoot>
+        <tr>
+            <td colspan="4"><strong>Totals</strong></td>
+            <td><strong>${{ "%.2f"|format(total_cost) }}</strong></td>
+            <td><strong>${{ "%.2f"|format(total_value) }}</strong></td>
+            <td>
+                <strong class="{% if total_profit >= 0 %}up{% else %}down{% endif %}">
+                    ${{ "%.2f"|format(total_profit) }}
+                </strong>
+            </td>
+            <td></td>
+        </tr>
+    </tfoot>
+</table>
+{% else %}
+<p class="empty-state">Your inventory is empty. Add a skin above using its exact Steam market hash name.</p>
+{% endif %}

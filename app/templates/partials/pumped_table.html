@@ -1,0 +1,36 @@
+{% if pumped %}
+<table class="data-table">
+    <thead>
+        <tr>
+            <th>Skin</th>
+            <th>Current Price</th>
+            <th>24h Change</th>
+            <th>7d Change</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for p in pumped %}
+        <tr class="pumped-row">
+            <td><a href="/skins/{{ p.skin.id }}" class="skin-link">{{ p.skin.display_name }}</a></td>
+            <td>${{ "%.2f"|format(p.current_price) }}</td>
+            <td>
+                {% if p.change_24h_pct is not none %}
+                <span class="badge {% if p.change_24h_pct >= 0 %}up{% else %}down{% endif %}">
+                    {{ "%.1f"|format(p.change_24h_pct) }}%
+                </span>
+                {% else %}—{% endif %}
+            </td>
+            <td>
+                {% if p.change_7d_ago_pct is not none %}
+                <span class="badge {% if p.change_7d_ago_pct >= 0 %}up{% else %}down{% endif %}">
+                    {{ "%.1f"|format(p.change_7d_ago_pct) }}%
+                </span>
+                {% else %}—{% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<p class="empty-state">No pumped skins detected right now. Add skins via the Inventory page (or the watchlist) and hit "Refresh Prices" a few times over the coming hours/days to build up history.</p>
+{% endif %}

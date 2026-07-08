@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}CS Skins Tracker{% endblock %}</title>
+    <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="icon" type="image/x-icon" href="/static/counter-strike-global-offensive.png">
+    {% block extra_head %}{% endblock %}
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-brand">CS Skins Tracker</div>
+        <div class="nav-links">
+            <a href="/inventory" class="{% if active == 'inventory' %}active{% endif %}">My Inventory</a>
+            <a href="/pumped" class="{% if active == 'pumped' %}active{% endif %}">Pumped Skins</a>
+            <a href="/skins" class="{% if active == 'skins' %}active{% endif %}">Price Charts</a>
+        </div>
+    </nav>
+    <main class="container">
+        {% block content %}{% endblock %}
+    </main>
+</body>
+</html>
