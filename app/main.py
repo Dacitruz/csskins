@@ -16,11 +16,7 @@ scheduler = AsyncIOScheduler()
 
 
 async def scheduled_refresh():
-    db = SessionLocal()
-    try:
-        await price_service.refresh_all_prices(db)
-    finally:
-        db.close()
+    await price_service.run_refresh_in_background(SessionLocal)
 
 
 @asynccontextmanager

@@ -13,8 +13,8 @@
         hx-swap="innerHTML"
         hx-indicator="#inv-refresh-spinner">
         Refresh Prices
-    <span id="inv-refresh-spinner" class="htmx-indicator">⏳</span>
-</button>
+        <span id="inv-refresh-spinner" class="htmx-indicator">⏳</span>
+    </button>
 </div>
 
 <form
@@ -38,7 +38,10 @@
     <button type="submit" class="btn btn-primary">Add Item</button>
 </form>
 
-<div id="inventory-table-container">
+<div id="inventory-table-container"
+     hx-get="/inventory/table"
+     hx-trigger="every 10s"
+     hx-swap="innerHTML">
     {% include "partials/inventory_table.html" %}
 </div>
 {% endblock %}

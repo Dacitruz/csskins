@@ -1,3 +1,15 @@
+{% if refresh_state and refresh_state.in_progress %}
+<p class="refresh-banner">
+    🔄 Refreshing prices in the background ({{ refresh_state.progress_done }}/{{ refresh_state.progress_total }})…
+    This page updates automatically, no need to wait here.
+</p>
+{% elif refresh_state and refresh_state.last_result %}
+<p class="refresh-banner subtle">
+    Last refresh: {{ refresh_state.last_result.updated }} updated, {{ refresh_state.last_result.failed }} failed out of {{ refresh_state.last_result.total }}.
+    {% if refresh_state.last_result.stopped_early %}Steam was rate-limiting hard, so it stopped early - the rest will be picked up on the next refresh.{% endif %}
+</p>
+{% endif %}
+
 <div class="stats-row">
     <div class="stat-card">
         <span class="stat-label">Total Inventory Value</span>

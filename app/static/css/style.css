@@ -161,6 +161,22 @@ h1 { margin: 0 0 4px; font-size: 1.6rem; }
     height: 420px;
 }
 
+.refresh-banner {
+    background: rgba(79, 141, 253, 0.1);
+    border: 1px solid var(--accent);
+    color: var(--text);
+    padding: 10px 16px;
+    border-radius: var(--radius);
+    font-size: 0.85rem;
+    margin-bottom: 16px;
+}
+
+.refresh-banner.subtle {
+    background: var(--surface);
+    border-color: var(--border);
+    color: var(--text-muted);
+}
+
 .stats-row {
     display: flex;
     gap: 16px;

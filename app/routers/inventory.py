@@ -1,8 +1,8 @@
-from fastapi import APIRouter, Depends, Request, Form
+from fastapi import APIRouter, Depends, Request, Form, BackgroundTasks
 from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
 
-from app.database import get_db
+from app.database import get_db, SessionLocal
 from app import models, price_service
 from app.templates_config import templates
 
@@ -69,6 +69,7 @@ def _render_inventory_table(request: Request, db: Session):
             "total_cost": total_cost,
             "total_value": total_value,
             "total_profit": total_value - total_cost,
+            "refresh_state": price_service.refresh_state,
         },
     )
 
@@ -85,6 +86,7 @@ def inventory_page(request: Request, db: Session = Depends(get_db)):
             "total_value": total_value,
             "total_profit": total_value - total_cost,
             "active": "inventory",
+            "refresh_state": price_service.refresh_state,
         },
     )
 
@@ -95,9 +97,13 @@ def inventory_table(request: Request, db: Session = Depends(get_db)):
 
 
 @router.post("/inventory/refresh", response_class=HTMLResponse)
-async def refresh_inventory_prices(request: Request, db: Session = Depends(get_db)):
-    """Manually trigger a Steam price sweep, then return the updated inventory table."""
-    await price_service.refresh_all_prices(db)
+def refresh_inventory_prices(
+    request: Request, background_tasks: BackgroundTasks, db: Session = Depends(get_db)
+):
+    """Kicks off a Steam price sweep in the background and returns immediately -
+    the sweep is paced to avoid Steam's rate limit, so it can take a while for
+    a big watchlist. The table polls itself for updates as prices come in."""
+    background_tasks.add_task(price_service.run_refresh_in_background, SessionLocal)
     return _render_inventory_table(request, db)
 
 
