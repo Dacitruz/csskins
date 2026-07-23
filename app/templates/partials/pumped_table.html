@@ -1,4 +1,9 @@
-{% if refresh_state and refresh_state.in_progress %}
+{% if refresh_state and refresh_state.is_blocked %}
+<p class="refresh-banner blocked">
+    ⏸️ Steam blocked this IP from the price endpoint entirely on the last attempt - refreshing again won't help right now and risks making it last longer.
+    Pausing automatic and manual refreshes for about {{ refresh_state.blocked_minutes_remaining }} more minute{{ 's' if refresh_state.blocked_minutes_remaining != 1 else '' }}.
+</p>
+{% elif refresh_state and refresh_state.in_progress %}
 <p class="refresh-banner">
     🔄 Refreshing prices in the background ({{ refresh_state.progress_done }}/{{ refresh_state.progress_total }})…
     This page updates automatically, no need to wait here.

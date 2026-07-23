@@ -70,7 +70,14 @@ async def fetch_current_price(
         if resp.status_code != 200:
             return None
 
-        data = resp.json()
+        try:
+            data = resp.json()
+        except ValueError:
+            # Steam sometimes returns an HTML block/challenge page with a 200
+            # status instead of JSON when it's really not happy with us -
+            # treat that as "no data" rather than crashing the sweep.
+            return None
+
         if not data.get("success"):
             return None
 
@@ -97,7 +104,16 @@ refresh_state = {
     "last_result": None,  # dict from refresh_all_prices, once it finishes
     "last_started": None,  # datetime
     "last_finished": None,  # datetime
+    "blocked_until": None,  # datetime - don't attempt another sweep before this
+    "consecutive_blocked_sweeps": 0,
 }
+
+# If a sweep comes back completely empty-handed and rate-limited, Steam has
+# blocked us outright for now - hammering it again immediately just risks
+# making the block last longer. Back off for a while instead, doubling the
+# wait each time it keeps happening.
+COOLDOWN_BASE_MINUTES = 15
+COOLDOWN_MAX_MINUTES = 120
 
 
 async def refresh_all_prices(db: Session) -> dict:
@@ -184,16 +200,63 @@ async def run_refresh_in_background(session_factory) -> None:
     if refresh_state["in_progress"]:
         return  # a refresh is already running - don't start a second one
 
+    now = datetime.utcnow()
+    if refresh_state["blocked_until"] and now < refresh_state["blocked_until"]:
+        return  # still cooling down from a hard block - don't poke Steam again yet
+
     refresh_state["in_progress"] = True
-    refresh_state["last_started"] = datetime.utcnow()
+    refresh_state["last_started"] = now
     db = session_factory()
     try:
         result = await refresh_all_prices(db)
         refresh_state["last_result"] = result
+
+        if result["stopped_early"] and result["updated"] == 0:
+            # Every single request got rejected - this isn't a brief blip,
+            # it's a hard block. Back off for a while rather than trying
+            # again next hour and getting the exact same result.
+            refresh_state["consecutive_blocked_sweeps"] += 1
+            cooldown = min(
+                COOLDOWN_BASE_MINUTES
+                * (2 ** (refresh_state["consecutive_blocked_sweeps"] - 1)),
+                COOLDOWN_MAX_MINUTES,
+            )
+            refresh_state["blocked_until"] = datetime.utcnow() + timedelta(
+                minutes=cooldown
+            )
+        else:
+            refresh_state["consecutive_blocked_sweeps"] = 0
+            refresh_state["blocked_until"] = None
+    except Exception as exc:
+        # A refresh should never be able to crash or hang the app - if
+        # something unexpected blows up, record it and move on.
+        refresh_state["last_result"] = {
+            "updated": 0,
+            "failed": 0,
+            "total": 0,
+            "stopped_early": True,
+            "error": str(exc),
+        }
     finally:
         db.close()
         refresh_state["in_progress"] = False
         refresh_state["last_finished"] = datetime.utcnow()
+
+
+def get_refresh_display_state() -> dict:
+    """refresh_state plus a couple of fields templates can use directly,
+    so they don't need to do datetime math themselves."""
+    now = datetime.utcnow()
+    blocked_until = refresh_state["blocked_until"]
+    is_blocked = bool(blocked_until and blocked_until > now)
+    minutes_remaining = (
+        int((blocked_until - now).total_seconds() // 60) + 1 if is_blocked else 0
+    )
+    return {
+        **refresh_state,
+        "is_blocked": is_blocked,
+        "blocked_minutes_remaining": minutes_remaining,
+    }
 
 
 @dataclass
