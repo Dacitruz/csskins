@@ -193,7 +193,7 @@ h1 { margin: 0 0 4px; font-size: 1.6rem; }
     font-weight: 700;
 }
 
-.row-actions { display: flex; gap: 6px; }
+.row-actions { display: flex; gap: 6px; align-items: center; height: 100%; }
 
 .inline-edit-form input {
     background: var(--surface-alt);

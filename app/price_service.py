@@ -1,5 +1,6 @@
 """Fetching current prices and computing which skins have recently pumped."""
 
+import asyncio
 from datetime import datetime, timedelta
 from dataclasses import dataclass
 
@@ -14,6 +15,13 @@ STEAM_PRICE_URL = "https://steamcommunity.com/market/priceoverview/"
 # % change thresholds that count as a "pump"
 PUMP_THRESHOLD_24H = 15.0
 PUMP_THRESHOLD_7D = 30.0
+
+# Steam rate-limits this endpoint hard if you hit it back-to-back - these
+# control how gently we pace requests. If you're still seeing lots of
+# failures, try raising REQUEST_DELAY_SECONDS further (e.g. to 3-5).
+REQUEST_DELAY_SECONDS = 2.0
+MAX_RETRIES = 3
+RETRY_BACKOFF_SECONDS = 5.0
 
 
 def _parse_price(price_str: str | None) -> float | None:
@@ -32,7 +40,8 @@ async def fetch_current_price(market_hash_name: str, currency: int = 1) -> dict 
     """Hits Steam's public (unauthenticated, rate-limited) priceoverview endpoint.
 
     currency=1 is USD. See Steam's currency codes for others.
-    Returns None if the item wasn't found or Steam rate-limited us.
+    Retries with backoff on 429 (rate-limited); returns None if the item
+    wasn't found or Steam kept rejecting us after MAX_RETRIES attempts.
     """
     params = {
         "appid": STEAM_APP_ID,
@@ -40,53 +49,72 @@ async def fetch_current_price(market_hash_name: str, currency: int = 1) -> dict 
         "market_hash_name": market_hash_name,
     }
     async with httpx.AsyncClient(timeout=10.0) as client:
-        resp = await client.get(STEAM_PRICE_URL, params=params)
-        if resp.status_code != 200:
-            return None
-        data = resp.json()
-        if not data.get("success"):
-            return None
-
-        price = _parse_price(data.get("lowest_price")) or _parse_price(
-            data.get("median_price")
-        )
-        if price is None:
-            return None
-
-        volume = None
-        if data.get("volume"):
+        for attempt in range(MAX_RETRIES):
             try:
-                volume = int(data["volume"].replace(",", ""))
-            except ValueError:
-                pass
+                resp = await client.get(STEAM_PRICE_URL, params=params)
+            except httpx.RequestError:
+                await asyncio.sleep(RETRY_BACKOFF_SECONDS * (attempt + 1))
+                continue
 
-        return {"price": price, "volume": volume}
+            if resp.status_code == 429:
+                # Rate-limited - back off and try again rather than giving up.
+                await asyncio.sleep(RETRY_BACKOFF_SECONDS * (attempt + 1))
+                continue
+
+            if resp.status_code != 200:
+                return None
+
+            data = resp.json()
+            if not data.get("success"):
+                return None
+
+            price = _parse_price(data.get("lowest_price")) or _parse_price(
+                data.get("median_price")
+            )
+            if price is None:
+                return None
+
+            volume = None
+            if data.get("volume"):
+                try:
+                    volume = int(data["volume"].replace(",", ""))
+                except ValueError:
+                    pass
+
+            return {"price": price, "volume": volume}
+
+    return None
 
 
 async def refresh_all_prices(db: Session) -> dict:
     """Fetches current price for every watched skin and stores a snapshot.
 
-    Steam's endpoint is rate-limited (roughly 1 request per few seconds per IP),
-    so for a lot of skins you'll want to space these out. For personal use with
-    a modest watchlist this straightforward loop is fine.
+    Requests are paced with a delay and retried with backoff on rate-limits,
+    since Steam's endpoint will silently reject rapid-fire requests. Each
+    snapshot is committed as soon as it's fetched (rather than one big commit
+    at the end) so the write transaction never sits open for the whole
+    refresh - that keeps other pages responsive to reads while this runs.
     """
     skins = db.query(models.Skin).filter(models.Skin.watched.is_(True)).all()
     updated, failed = 0, 0
 
-    for skin in skins:
+    for i, skin in enumerate(skins):
         result = await fetch_current_price(skin.market_hash_name)
         if result is None:
             failed += 1
-            continue
-        snapshot = models.PriceSnapshot(
-            skin_id=skin.id,
-            price=result["price"],
-            volume=result["volume"],
-        )
-        db.add(snapshot)
-        updated += 1
+        else:
+            snapshot = models.PriceSnapshot(
+                skin_id=skin.id,
+                price=result["price"],
+                volume=result["volume"],
+            )
+            db.add(snapshot)
+            db.commit()
+            updated += 1
 
-    db.commit()
+        if i < len(skins) - 1:
+            await asyncio.sleep(REQUEST_DELAY_SECONDS)
+
     return {"updated": updated, "failed": failed, "total": len(skins)}
 
 
