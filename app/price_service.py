@@ -55,16 +55,17 @@ async def fetch_current_price(
     """
     params = {
         "appid": STEAM_APP_ID,
-        "currency": currency,
+        # "currency": currency,
         "market_hash_name": market_hash_name,
     }
+    
     async with httpx.AsyncClient(timeout=10.0) as client:
         try:
             resp = await client.get(STEAM_PRICE_URL, params=params)
         except httpx.RequestError:
             return None
 
-        if resp.status_code == 429:
+
             return "rate_limited"
 
         if resp.status_code != 200:
