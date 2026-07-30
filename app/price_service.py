@@ -56,6 +56,7 @@ async def fetch_current_price(
     params = {
         "appid": STEAM_APP_ID,
         # "currency": currency,
+
         "market_hash_name": market_hash_name,
     }
     
